@@ -1,19 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['mongoose']
+    serverComponentsExternalPackages: ["mongoose"],
   },
   webpack: (config, { isServer }) => {
     if (isServer) {
-      config.externals.push('mongoose')
+      config.externals.push("mongoose");
     }
-    return config
+    return config;
   },
   env: {
     MONGO_URI: process.env.MONGO_URI,
     JWT_SECRET: process.env.JWT_SECRET,
     JWT_EXPIRE: process.env.JWT_EXPIRE,
-    NODE_ENV: process.env.NODE_ENV,
+
     PORT: process.env.PORT,
   },
   eslint: {
@@ -25,6 +25,6 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-}
+};
 
-export default nextConfig
+export default nextConfig;
