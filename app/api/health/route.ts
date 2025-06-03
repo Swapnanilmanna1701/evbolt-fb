@@ -1,20 +1,28 @@
 import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-
-// Use the serverless driver with no native dependencies
-const sql = neon(process.env.DATABASE_URL!)
+import connectDB from "@/lib/mongodb"
+import mongoose from "mongoose"
 
 export async function GET() {
   try {
-    // Test database connection
-    const result = await sql`SELECT NOW() as time`
+    await connectDB()
+
+    const dbStatus = mongoose.connection.readyState
+    const dbStates = {
+      0: "disconnected",
+      1: "connected",
+      2: "connecting",
+      3: "disconnecting",
+    }
 
     return NextResponse.json({
       status: "OK",
       message: "Charging Station API is running",
       timestamp: new Date().toISOString(),
-      dbConnected: true,
-      dbTime: result[0].time,
+      database: {
+        status: dbStates[dbStatus as keyof typeof dbStates],
+        connected: dbStatus === 1,
+      },
+      environment: process.env.NODE_ENV,
     })
   } catch (error) {
     console.error("Health check error:", error)
@@ -23,7 +31,11 @@ export async function GET() {
         status: "ERROR",
         message: "API is running but database connection failed",
         timestamp: new Date().toISOString(),
-        dbConnected: false,
+        database: {
+          status: "error",
+          connected: false,
+        },
+        error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     )

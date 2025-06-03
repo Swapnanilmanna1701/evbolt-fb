@@ -26,23 +26,27 @@ import { FilterControls } from "./components/filter-controls"
 const MapView = dynamic(() => import("./components/map-view"), { ssr: false })
 
 interface ChargingStation {
-  id: number
+  _id: string
   name: string
   latitude: number
   longitude: number
-  address: string
-  connector_type: string
-  power_output: number
+  address?: string
+  connectorType?: string
+  powerOutput?: number
   status: string
-  price_per_kwh: number
-  created_by: number
-  created_at: string
-  updated_at: string
+  pricePerKwh?: number
+  createdBy: {
+    _id: string
+    username: string
+    email: string
+  }
+  createdAt: string
+  updatedAt: string
   distance?: number
 }
 
 interface AppUser {
-  id: number
+  id: string
   username: string
   email: string
 }
@@ -94,10 +98,10 @@ export default function ChargingStationApp() {
     latitude: "",
     longitude: "",
     address: "",
-    connector_type: "",
-    power_output: "",
+    connectorType: "",
+    powerOutput: "",
     status: "available",
-    price_per_kwh: "",
+    pricePerKwh: "",
   })
 
   // Real-time updates interval
@@ -153,19 +157,19 @@ export default function ChargingStationApp() {
 
     // Connector type filter
     if (filters.connectorType !== "all") {
-      filtered = filtered.filter((station) => station.connector_type === filters.connectorType)
+      filtered = filtered.filter((station) => station.connectorType === filters.connectorType)
     }
 
     // Price filter
     if (filters.maxPrice) {
       const maxPrice = Number.parseFloat(filters.maxPrice)
-      filtered = filtered.filter((station) => !station.price_per_kwh || station.price_per_kwh <= maxPrice)
+      filtered = filtered.filter((station) => !station.pricePerKwh || station.pricePerKwh <= maxPrice)
     }
 
     // Power filter
     if (filters.minPower) {
       const minPower = Number.parseInt(filters.minPower)
-      filtered = filtered.filter((station) => !station.power_output || station.power_output >= minPower)
+      filtered = filtered.filter((station) => !station.powerOutput || station.powerOutput >= minPower)
     }
 
     // Location-based filter
@@ -337,7 +341,7 @@ export default function ChargingStationApp() {
 
     try {
       const method = editingStation ? "PUT" : "POST"
-      const url = editingStation ? `/api/charging-stations/${editingStation.id}` : "/api/charging-stations"
+      const url = editingStation ? `/api/charging-stations/${editingStation._id}` : "/api/charging-stations"
 
       const response = await fetch(url, {
         method,
@@ -349,8 +353,8 @@ export default function ChargingStationApp() {
           ...stationForm,
           latitude: Number.parseFloat(stationForm.latitude),
           longitude: Number.parseFloat(stationForm.longitude),
-          power_output: stationForm.power_output ? Number.parseInt(stationForm.power_output) : null,
-          price_per_kwh: stationForm.price_per_kwh ? Number.parseFloat(stationForm.price_per_kwh) : null,
+          powerOutput: stationForm.powerOutput ? Number.parseInt(stationForm.powerOutput) : null,
+          pricePerKwh: stationForm.pricePerKwh ? Number.parseFloat(stationForm.pricePerKwh) : null,
         }),
       })
 
@@ -368,10 +372,10 @@ export default function ChargingStationApp() {
           latitude: "",
           longitude: "",
           address: "",
-          connector_type: "",
-          power_output: "",
+          connectorType: "",
+          powerOutput: "",
           status: "available",
-          price_per_kwh: "",
+          pricePerKwh: "",
         })
         fetchStations()
       } else {
@@ -392,7 +396,7 @@ export default function ChargingStationApp() {
     }
   }
 
-  const handleDeleteStation = async (id: number) => {
+  const handleDeleteStation = async (id: string) => {
     if (!confirm("Are you sure you want to delete this charging station?")) return
 
     try {
@@ -424,10 +428,10 @@ export default function ChargingStationApp() {
       latitude: station.latitude.toString(),
       longitude: station.longitude.toString(),
       address: station.address || "",
-      connector_type: station.connector_type || "",
-      power_output: station.power_output?.toString() || "",
+      connectorType: station.connectorType || "",
+      powerOutput: station.powerOutput?.toString() || "",
       status: station.status,
-      price_per_kwh: station.price_per_kwh?.toString() || "",
+      pricePerKwh: station.pricePerKwh?.toString() || "",
     })
     setShowStationDialog(true)
   }
@@ -616,10 +620,10 @@ export default function ChargingStationApp() {
                       latitude: "",
                       longitude: "",
                       address: "",
-                      connector_type: "",
-                      power_output: "",
+                      connectorType: "",
+                      powerOutput: "",
                       status: "available",
-                      price_per_kwh: "",
+                      pricePerKwh: "",
                     })
                   }}
                 >
@@ -680,10 +684,10 @@ export default function ChargingStationApp() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="connector_type">Connector Type</Label>
+                      <Label htmlFor="connectorType">Connector Type</Label>
                       <Select
-                        value={stationForm.connector_type}
-                        onValueChange={(value) => setStationForm({ ...stationForm, connector_type: value })}
+                        value={stationForm.connectorType}
+                        onValueChange={(value) => setStationForm({ ...stationForm, connectorType: value })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select type" />
@@ -698,12 +702,12 @@ export default function ChargingStationApp() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="power_output">Power (kW)</Label>
+                      <Label htmlFor="powerOutput">Power (kW)</Label>
                       <Input
-                        id="power_output"
+                        id="powerOutput"
                         type="number"
-                        value={stationForm.power_output}
-                        onChange={(e) => setStationForm({ ...stationForm, power_output: e.target.value })}
+                        value={stationForm.powerOutput}
+                        onChange={(e) => setStationForm({ ...stationForm, powerOutput: e.target.value })}
                       />
                     </div>
                   </div>
@@ -725,13 +729,13 @@ export default function ChargingStationApp() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="price_per_kwh">Price per kWh</Label>
+                      <Label htmlFor="pricePerKwh">Price per kWh</Label>
                       <Input
-                        id="price_per_kwh"
+                        id="pricePerKwh"
                         type="number"
                         step="0.01"
-                        value={stationForm.price_per_kwh}
-                        onChange={(e) => setStationForm({ ...stationForm, price_per_kwh: e.target.value })}
+                        value={stationForm.pricePerKwh}
+                        onChange={(e) => setStationForm({ ...stationForm, pricePerKwh: e.target.value })}
                       />
                     </div>
                   </div>
@@ -777,7 +781,7 @@ export default function ChargingStationApp() {
               {/* Stations Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredStations.map((station) => (
-                  <Card key={station.id} className="hover:shadow-lg transition-shadow">
+                  <Card key={station._id} className="hover:shadow-lg transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-start">
                         <div>
@@ -800,23 +804,23 @@ export default function ChargingStationApp() {
                       <div className="flex justify-between text-sm">
                         <span className="flex items-center">
                           <Zap className="w-4 h-4 mr-1" />
-                          {station.connector_type || "N/A"}
+                          {station.connectorType || "N/A"}
                         </span>
-                        <span>{station.power_output ? `${station.power_output} kW` : "N/A"}</span>
+                        <span>{station.powerOutput ? `${station.powerOutput} kW` : "N/A"}</span>
                       </div>
-                      {station.price_per_kwh && (
+                      {station.pricePerKwh && (
                         <div className="flex items-center text-sm">
-                          <DollarSign className="w-4 h-4 mr-1" />${station.price_per_kwh}/kWh
+                          <DollarSign className="w-4 h-4 mr-1" />${station.pricePerKwh}/kWh
                         </div>
                       )}
                       <div className="text-xs text-gray-500">
-                        Created {new Date(station.created_at).toLocaleDateString()}
+                        Created {new Date(station.createdAt).toLocaleDateString()}
                       </div>
                       <div className="flex justify-end space-x-2 pt-2">
                         <Button variant="outline" size="sm" onClick={() => handleEditStation(station)}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDeleteStation(station.id)}>
+                        <Button variant="outline" size="sm" onClick={() => handleDeleteStation(station._id)}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>

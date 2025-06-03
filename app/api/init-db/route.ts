@@ -1,41 +1,20 @@
 import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-
-const sql = neon(process.env.DATABASE_URL!)
+import connectDB from "@/lib/mongodb"
+import User from "@/models/User"
+import ChargingStation from "@/models/ChargingStation"
+import mongoose from "mongoose" // Declare mongoose variable
 
 export async function POST() {
   try {
-    // Create users table
-    await sql`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(255) UNIQUE NOT NULL,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `
+    await connectDB()
 
-    // Create charging stations table
-    await sql`
-      CREATE TABLE IF NOT EXISTS charging_stations (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        latitude DECIMAL(10, 8) NOT NULL,
-        longitude DECIMAL(11, 8) NOT NULL,
-        address TEXT,
-        connector_type VARCHAR(100),
-        power_output INTEGER,
-        status VARCHAR(50) DEFAULT 'available',
-        price_per_kwh DECIMAL(5, 3),
-        created_by INTEGER REFERENCES users(id),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `
+    // Initialize models (this will create collections if they don't exist)
+    await User.init()
+    await ChargingStation.init()
 
     return NextResponse.json({
-      message: "Database tables created successfully",
+      message: "Database initialized successfully",
+      collections: ["users", "chargingstations"],
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
@@ -46,25 +25,21 @@ export async function POST() {
 
 export async function GET() {
   try {
-    // Check if tables exist
-    const usersCheck = await sql`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_name = 'users'
-      )
-    `
+    await connectDB()
 
-    const stationsCheck = await sql`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_name = 'charging_stations'
-      )
-    `
+    // Check collections
+    const collections = await mongoose.connection.db.listCollections().toArray()
+    const collectionNames = collections.map((col) => col.name)
+
+    // Count documents
+    const userCount = await User.countDocuments()
+    const stationCount = await ChargingStation.countDocuments() // Ensure stationCount is awaited
 
     return NextResponse.json({
-      tablesExist: {
-        users: usersCheck[0].exists,
-        charging_stations: stationsCheck[0].exists,
+      collections: collectionNames,
+      counts: {
+        users: userCount,
+        chargingStations: stationCount,
       },
       timestamp: new Date().toISOString(),
     })

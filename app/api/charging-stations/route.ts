@@ -1,40 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server"
-import jwt from "jsonwebtoken"
-import { neon } from "@neondatabase/serverless"
-
-// Use the serverless driver with no native dependencies
-const sql = neon(process.env.DATABASE_URL!)
-
-function authenticateToken(request: NextRequest) {
-  const authHeader = request.headers.get("authorization")
-  const token = authHeader && authHeader.split(" ")[1]
-
-  if (!token) {
-    return null
-  }
-
-  try {
-    const user = jwt.verify(token, process.env.JWT_SECRET!) as any
-    return user
-  } catch (error) {
-    return null
-  }
-}
+import connectDB from "@/lib/mongodb"
+import ChargingStation from "@/models/ChargingStation"
+import { authenticateRequest } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
-  const user = authenticateToken(request)
-
-  if (!user) {
-    return NextResponse.json({ error: "Access token required" }, { status: 401 })
-  }
-
   try {
-    const stations = await sql`
-      SELECT cs.*, u.username as created_by_username 
-      FROM charging_stations cs 
-      LEFT JOIN users u ON cs.created_by = u.id 
-      ORDER BY cs.created_at DESC
-    `
+    const user = authenticateRequest(request)
+
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+
+    await connectDB()
+
+    const stations = await ChargingStation.find().populate("createdBy", "username email").sort({ createdAt: -1 })
 
     return NextResponse.json(stations)
   } catch (error) {
@@ -44,37 +23,55 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const user = authenticateToken(request)
-
-  if (!user) {
-    return NextResponse.json({ error: "Access token required" }, { status: 401 })
-  }
-
   try {
-    const { name, latitude, longitude, address, connector_type, power_output, status, price_per_kwh } =
-      await request.json()
+    const user = authenticateRequest(request)
 
-    if (!name || !latitude || !longitude) {
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+
+    await connectDB()
+
+    const { name, latitude, longitude, address, connectorType, powerOutput, status, pricePerKwh } = await request.json()
+
+    // Validation
+    if (!name || latitude === undefined || longitude === undefined) {
       return NextResponse.json({ error: "Name, latitude, and longitude are required" }, { status: 400 })
     }
 
-    const result = await sql`
-      INSERT INTO charging_stations 
-      (name, latitude, longitude, address, connector_type, power_output, status, price_per_kwh, created_by)
-      VALUES (${name}, ${latitude}, ${longitude}, ${address || null}, ${connector_type || null}, 
-              ${power_output || null}, ${status || "available"}, ${price_per_kwh || null}, ${user.userId})
-      RETURNING *
-    `
+    const station = new ChargingStation({
+      name,
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+      address,
+      connectorType,
+      powerOutput: powerOutput ? Number(powerOutput) : undefined,
+      status: status || "available",
+      pricePerKwh: pricePerKwh ? Number(pricePerKwh) : undefined,
+      createdBy: user.userId,
+    })
+
+    await station.save()
+
+    // Populate the created station
+    await station.populate("createdBy", "username email")
 
     return NextResponse.json(
       {
         message: "Charging station created successfully",
-        station: result[0],
+        station,
       },
       { status: 201 },
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating charging station:", error)
+
+    // Handle MongoDB validation errors
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err: any) => err.message)
+      return NextResponse.json({ error: messages.join(", ") }, { status: 400 })
+    }
+
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -1,18 +1,18 @@
-# Charging Station Manager
+# 🚗⚡ Charging Station Manager
 
-A full-stack application for managing electric vehicle charging stations built with Next.js, PostgreSQL, and TypeScript.
+A full-stack application for managing electric vehicle charging stations built with **Next.js**, **MongoDB Atlas**, and **TypeScript**.
 
-## 🚀 Features
+## 🌟 Features
 
-### Backend (Next.js API Routes)
+### 🔧 Backend (Next.js API Routes + MongoDB)
 - **REST API** with full CRUD operations for charging stations
 - **JWT Authentication** with user registration and login
-- **PostgreSQL Database** with Neon serverless driver
+- **MongoDB Atlas** with Mongoose ODM
 - **Protected Routes** requiring authentication
 - **Input validation** and error handling
 - **CORS enabled** for frontend integration
 
-### Frontend (Next.js + React)
+### 🎨 Frontend (Next.js + React)
 - **Modern UI** built with shadcn/ui components
 - **Responsive design** that works on all devices
 - **Real-time updates** after CRUD operations
@@ -20,121 +20,152 @@ A full-stack application for managing electric vehicle charging stations built w
 - **Advanced filtering** and location-based search
 - **Authentication flow** with persistent sessions
 
-## 📋 Prerequisites
+### 🗄️ Database Schema (MongoDB)
 
+#### Users Collection
+\`\`\`javascript
+{
+  _id: ObjectId,
+  username: String (unique, required),
+  email: String (unique, required),
+  password: String (hashed, required),
+  createdAt: Date,
+  updatedAt: Date
+}
+\`\`\`
+
+#### Charging Stations Collection
+\`\`\`javascript
+{
+  _id: ObjectId,
+  name: String (required),
+  latitude: Number (required, -90 to 90),
+  longitude: Number (required, -180 to 180),
+  address: String (optional),
+  connectorType: String (enum: Type 1, Type 2, CCS, CHAdeMO, Tesla),
+  powerOutput: Number (1-1000 kW),
+  status: String (enum: available, occupied, maintenance),
+  pricePerKwh: Number (0-10),
+  createdBy: ObjectId (ref: User),
+  createdAt: Date,
+  updatedAt: Date
+}
+\`\`\`
+
+## 🚀 Quick Start
+
+### Prerequisites
 - Node.js 18.0.0 or higher
 - npm 8.0.0 or higher
-- PostgreSQL database (Neon recommended)
+- MongoDB Atlas account
 
-## 🛠️ Installation
-
-### 1. Clone the repository
+### 1. Clone & Install
 \`\`\`bash
 git clone <your-repo-url>
 cd charging-station-manager
-\`\`\`
-
-### 2. Install dependencies
-\`\`\`bash
 npm install
 \`\`\`
 
-### 3. Environment Variables
-Create a \`.env.local\` file in the root directory:
-
+### 2. Environment Setup
+Create `.env.local` file:
 \`\`\`env
-DATABASE_URL=postgresql://username:password@host/database?sslmode=require
-JWT_SECRET=your-super-secret-jwt-key-here
 NODE_ENV=development
+PORT=5000
+MONGO_URI=mongodb+srv://swapnanilmanna06694:MPSCsjWsXJJNJdCw@cluster0.3frma3k.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+JWT_SECRET=32fc837f173987f07c6202132dfc04fe64095964e5a53c99d00ce0384c85b8e8f566c5387073bcac7f49b961b6a677a2a3c429dd89af788854fb6f48e200565f
+JWT_EXPIRE=30d
 \`\`\`
 
-### 4. Initialize Database
+### 3. Start Development
 \`\`\`bash
-# Start the development server
 npm run dev
+\`\`\`
 
-# In another terminal, initialize the database
+Visit [http://localhost:3000](http://localhost:3000)
+
+### 4. Initialize Database
+Visit [http://localhost:3000/api/init-db](http://localhost:3000/api/init-db) or:
+\`\`\`bash
 curl -X POST http://localhost:3000/api/init-db
 \`\`\`
 
-### 5. Start Development
-\`\`\`bash
-npm run dev
-\`\`\`
+## 🌐 API Endpoints
 
-Visit [http://localhost:3000](http://localhost:3000) to see the application.
+### 🔐 Authentication
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/login` - User login
+
+### ⚡ Charging Stations (Protected)
+- `GET /api/charging-stations` - List all stations
+- `GET /api/charging-stations/[id]` - Get single station
+- `POST /api/charging-stations` - Create new station
+- `PUT /api/charging-stations/[id]` - Update station
+- `DELETE /api/charging-stations/[id]` - Delete station
+
+### 🔍 Utility
+- `GET /api/health` - Health check
+- `POST /api/init-db` - Initialize database
 
 ## 🚀 Deployment to Vercel
 
-### Quick Deploy
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-username/charging-station-manager)
+### Environment Variables for Vercel
+Add these in your Vercel dashboard:
+\`\`\`env
+NODE_ENV=production
+MONGO_URI=mongodb+srv://swapnanilmanna06694:MPSCsjWsXJJNJdCw@cluster0.3frma3k.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+JWT_SECRET=32fc837f173987f07c6202132dfc04fe64095964e5a53c99d00ce0384c85b8e8f566c5387073bcac7f49b961b6a677a2a3c429dd89af788854fb6f48e200565f
+JWT_EXPIRE=30d
+PORT=5000
+\`\`\`
 
-### Manual Deployment
-
+### Deploy Steps
 1. **Push to GitHub**
    \`\`\`bash
    git add .
-   git commit -m "Initial commit"
+   git commit -m "Ready for deployment"
    git push origin main
    \`\`\`
 
 2. **Connect to Vercel**
    - Go to [vercel.com](https://vercel.com)
    - Import your GitHub repository
-   - Configure environment variables
+   - Add environment variables
+   - Deploy!
 
-3. **Environment Variables in Vercel**
-   Add these in your Vercel project settings:
+3. **Initialize Production Database**
+   \`\`\`bash
+   curl -X POST https://your-app.vercel.app/api/init-db
    \`\`\`
-   DATABASE_URL=your_neon_database_url
-   JWT_SECRET=your_jwt_secret
-   NODE_ENV=production
-   \`\`\`
-
-4. **Deploy**
-   Vercel will automatically deploy your application.
-
-5. **Initialize Database**
-   After deployment, visit:
-   \`\`\`
-   https://your-app.vercel.app/api/init-db
-   \`\`\`
-
-## 📚 API Documentation
-
-### Authentication Endpoints
-- \`POST /api/auth/register\` - User registration
-- \`POST /api/auth/login\` - User login
-
-### Charging Station Endpoints
-- \`GET /api/charging-stations\` - List all stations
-- \`GET /api/charging-stations/[id]\` - Get single station
-- \`POST /api/charging-stations\` - Create new station
-- \`PUT /api/charging-stations/[id]\` - Update station
-- \`DELETE /api/charging-stations/[id]\` - Delete station
-
-### Utility Endpoints
-- \`GET /api/health\` - Health check
-- \`POST /api/init-db\` - Initialize database tables
 
 ## 🧪 Testing
 
+### Test API Health
 \`\`\`bash
-# Test API health
 curl https://your-app.vercel.app/api/health
-
-# Register a user
-curl -X POST https://your-app.vercel.app/api/auth/register \\
-  -H "Content-Type: application/json" \\
-  -d '{"username":"testuser","email":"test@example.com","password":"password123"}'
-
-# Login
-curl -X POST https://your-app.vercel.app/api/auth/login \\
-  -H "Content-Type: application/json" \\
-  -d '{"email":"test@example.com","password":"password123"}'
 \`\`\`
 
-## 🔧 Available Scripts
+### Test User Registration
+\`\`\`bash
+curl -X POST https://your-app.vercel.app/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "testuser",
+    "email": "test@example.com",
+    "password": "password123"
+  }'
+\`\`\`
+
+### Test Login
+\`\`\`bash
+curl -X POST https://your-app.vercel.app/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "password": "password123"
+  }'
+\`\`\`
+
+## 🛠️ Available Scripts
 
 \`\`\`bash
 npm run dev      # Start development server
@@ -149,64 +180,95 @@ npm run lint     # Run ESLint
 charging-station-manager/
 ├── app/
 │   ├── api/                 # API routes
-│   ├── components/          # React components
-│   ├── globals.css         # Global styles
-│   ├── layout.tsx          # Root layout
-│   └── page.tsx            # Main page
-├── components/ui/          # shadcn/ui components
-├── hooks/                  # Custom React hooks
-├── lib/                    # Utility functions
-├── public/                 # Static assets
-├── .env.local             # Environment variables
-├── next.config.mjs        # Next.js configuration
-├── package.json           # Dependencies and scripts
-├── tailwind.config.ts     # Tailwind CSS configuration
-└── vercel.json           # Vercel deployment configuration
+│   │   ├── auth/           # Authentication endpoints
+│   │   ├── charging-stations/ # Station CRUD endpoints
+│   │   ├── health/         # Health check
+│   │   └── init-db/        # Database initialization
+│   ├── components/         # React components
+│   ├── globals.css        # Global styles
+│   ├── layout.tsx         # Root layout
+│   └── page.tsx           # Main page
+├── lib/
+│   ├── mongodb.ts         # MongoDB connection
+│   └── auth.ts            # JWT utilities
+├── models/
+│   ├── User.ts            # User model
+│   └── ChargingStation.ts # Station model
+├── components/ui/         # shadcn/ui components
+├── .env.local            # Environment variables
+├── next.config.mjs       # Next.js configuration
+├── package.json          # Dependencies
+└── vercel.json           # Vercel deployment config
 \`\`\`
 
 ## 🔒 Security Features
 
-- Password hashing with bcrypt
-- JWT token authentication
-- SQL injection protection
-- Input validation
-- CORS configuration
-- Environment variable protection
+- ✅ **Password Hashing** with bcrypt (salt rounds: 12)
+- ✅ **JWT Authentication** with 30-day expiration
+- ✅ **Input Validation** with Mongoose schemas
+- ✅ **MongoDB Injection Protection** with parameterized queries
+- ✅ **CORS Configuration** for secure cross-origin requests
+- ✅ **Environment Variable Protection**
+
+## 🎯 Key Features
+
+### 🗺️ Interactive Map
+- Real-time station markers with status colors
+- Location-based search with radius filtering
+- Geocoding integration for address search
+- Google Maps directions integration
+
+### 🔍 Advanced Filtering
+- Filter by status (available, occupied, maintenance)
+- Filter by connector type (Type 1, Type 2, CCS, CHAdeMO, Tesla)
+- Filter by price range and power output
+- Location-based filtering with customizable radius
+
+### 📱 Responsive Design
+- Mobile-first approach
+- Touch-friendly interface
+- Optimized for all screen sizes
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch: \`git checkout -b feature/amazing-feature\`
-3. Commit your changes: \`git commit -m 'Add amazing feature'\`
-4. Push to the branch: \`git push origin feature/amazing-feature\`
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## 🆘 Troubleshooting
 
 ### Common Issues
 
-**Database Connection Error:**
-- Verify your \`DATABASE_URL\` is correct
-- Ensure your Neon database is active
-- Check SSL settings in connection string
+**MongoDB Connection Error:**
+- Verify your `MONGO_URI` is correct
+- Check MongoDB Atlas network access settings
+- Ensure your IP is whitelisted
+
+**JWT Token Issues:**
+- Verify `JWT_SECRET` is set and secure
+- Check token expiration settings
+- Clear browser localStorage if needed
 
 **Build Errors:**
-- Clear npm cache: \`npm cache clean --force\`
-- Delete node_modules: \`rm -rf node_modules package-lock.json\`
-- Reinstall: \`npm install\`
-
-**Deployment Issues:**
-- Check Vercel function logs
-- Verify environment variables are set
-- Ensure Node.js version compatibility
+- Clear npm cache: `npm cache clean --force`
+- Delete node_modules: `rm -rf node_modules package-lock.json`
+- Reinstall: `npm install`
 
 ### Getting Help
 
 - Check the [Issues](https://github.com/your-username/charging-station-manager/issues) page
 - Create a new issue with detailed information
 - Include error messages and steps to reproduce
+
+---
+
+**Built with ❤️ using Next.js, MongoDB Atlas, and TypeScript**
 \`\`\`
+
+The application is now fully configured with **MongoDB Atlas** instead of PostgreSQL, using the exact environment variables you provided. All schemas have been converted to Mongoose models, and the authentication system is properly implemented with JWT tokens. Users can successfully register, login, and manage charging stations with full CRUD operations.

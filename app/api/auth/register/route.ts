@@ -1,51 +1,75 @@
 import { type NextRequest, NextResponse } from "next/server"
-import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
-import { neon } from "@neondatabase/serverless"
-
-// Use the serverless driver with no native dependencies
-const sql = neon(process.env.DATABASE_URL!)
+import connectDB from "@/lib/mongodb"
+import User from "@/models/User"
+import { generateToken } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
+    await connectDB()
+
     const { username, email, password } = await request.json()
 
+    // Validation
     if (!username || !email || !password) {
-      return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+      return NextResponse.json({ error: "Username, email, and password are required" }, { status: 400 })
+    }
+
+    if (password.length < 6) {
+      return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
     }
 
     // Check if user already exists
-    const existingUser = await sql`
-      SELECT * FROM users WHERE email = ${email} OR username = ${username}
-    `
+    const existingUser = await User.findOne({
+      $or: [{ email: email.toLowerCase() }, { username }],
+    })
 
-    if (existingUser.length > 0) {
-      return NextResponse.json({ error: "User already exists" }, { status: 400 })
+    if (existingUser) {
+      return NextResponse.json({ error: "User with this email or username already exists" }, { status: 400 })
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10)
+    // Create new user
+    const user = new User({
+      username,
+      email: email.toLowerCase(),
+      password,
+    })
 
-    // Create user
-    const result = await sql`
-      INSERT INTO users (username, email, password) 
-      VALUES (${username}, ${email}, ${hashedPassword}) 
-      RETURNING id, username, email
-    `
+    await user.save()
 
-    const user = result[0]
-    const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET!, { expiresIn: "24h" })
+    // Generate JWT token
+    const token = generateToken({
+      userId: user._id.toString(),
+      username: user.username,
+      email: user.email,
+    })
 
     return NextResponse.json(
       {
-        message: "User created successfully",
+        message: "User registered successfully",
         token,
-        user: { id: user.id, username: user.username, email: user.email },
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+        },
       },
       { status: 201 },
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error("Registration error:", error)
+
+    // Handle MongoDB validation errors
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err: any) => err.message)
+      return NextResponse.json({ error: messages.join(", ") }, { status: 400 })
+    }
+
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0]
+      return NextResponse.json({ error: `${field} already exists` }, { status: 400 })
+    }
+
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

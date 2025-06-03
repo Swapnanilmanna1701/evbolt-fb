@@ -9,25 +9,29 @@ import { MapPin, Zap, DollarSign, Edit, Trash2, Navigation } from "lucide-react"
 import "leaflet/dist/leaflet.css"
 
 interface ChargingStation {
-  id: number
+  _id: string
   name: string
   latitude: number
   longitude: number
-  address: string
-  connector_type: string
-  power_output: number
+  address?: string
+  connectorType?: string
+  powerOutput?: number
   status: string
-  price_per_kwh: number
-  created_by: number
-  created_at: string
-  updated_at: string
+  pricePerKwh?: number
+  createdBy: {
+    _id: string
+    username: string
+    email: string
+  }
+  createdAt: string
+  updatedAt: string
   distance?: number
 }
 
 interface MapViewProps {
   stations: ChargingStation[]
   onStationSelect: (station: ChargingStation) => void
-  onStationDelete: (id: number) => void
+  onStationDelete: (id: string) => void
   searchLocation?: { lat: number; lng: number } | null
   searchRadius?: number
 }
@@ -230,7 +234,7 @@ export default function MapView({
         {/* Charging station markers */}
         {stations.map((station) => (
           <Marker
-            key={station.id}
+            key={station._id}
             position={[station.latitude, station.longitude]}
             icon={createCustomIcon(station.status, station.distance !== undefined)}
           >
@@ -256,20 +260,20 @@ export default function MapView({
                   <div className="flex justify-between text-sm">
                     <span className="flex items-center">
                       <Zap className="w-3 h-3 mr-1" />
-                      {station.connector_type || "N/A"}
+                      {station.connectorType || "N/A"}
                     </span>
-                    <span>{station.power_output ? `${station.power_output} kW` : "N/A"}</span>
+                    <span>{station.powerOutput ? `${station.powerOutput} kW` : "N/A"}</span>
                   </div>
 
-                  {station.price_per_kwh && (
+                  {station.pricePerKwh && (
                     <div className="flex items-center text-sm">
-                      <DollarSign className="w-3 h-3 mr-1" />${station.price_per_kwh}/kWh
+                      <DollarSign className="w-3 h-3 mr-1" />${station.pricePerKwh}/kWh
                     </div>
                   )}
                 </div>
 
                 <div className="text-xs text-gray-500 mb-3">
-                  Created {new Date(station.created_at).toLocaleDateString()}
+                  Created {new Date(station.createdAt).toLocaleDateString()}
                 </div>
 
                 <div className="flex justify-between space-x-2">
@@ -289,7 +293,7 @@ export default function MapView({
                     <Edit className="w-3 h-3 mr-1" />
                     Edit
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => onStationDelete(station.id)} className="text-xs">
+                  <Button variant="outline" size="sm" onClick={() => onStationDelete(station._id)} className="text-xs">
                     <Trash2 className="w-3 h-3 mr-1" />
                     Delete
                   </Button>

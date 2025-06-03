@@ -1,47 +1,32 @@
 import { type NextRequest, NextResponse } from "next/server"
-import jwt from "jsonwebtoken"
-import { neon } from "@neondatabase/serverless"
-
-// Use the serverless driver with no native dependencies
-const sql = neon(process.env.DATABASE_URL!)
-
-function authenticateToken(request: NextRequest) {
-  const authHeader = request.headers.get("authorization")
-  const token = authHeader && authHeader.split(" ")[1]
-
-  if (!token) {
-    return null
-  }
-
-  try {
-    const user = jwt.verify(token, process.env.JWT_SECRET!) as any
-    return user
-  } catch (error) {
-    return null
-  }
-}
+import connectDB from "@/lib/mongodb"
+import ChargingStation from "@/models/ChargingStation"
+import { authenticateRequest } from "@/lib/auth"
+import mongoose from "mongoose"
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  const user = authenticateToken(request)
-
-  if (!user) {
-    return NextResponse.json({ error: "Access token required" }, { status: 401 })
-  }
-
   try {
-    const { id } = params
-    const result = await sql`
-      SELECT cs.*, u.username as created_by_username 
-      FROM charging_stations cs 
-      LEFT JOIN users u ON cs.created_by = u.id 
-      WHERE cs.id = ${id}
-    `
+    const user = authenticateRequest(request)
 
-    if (result.length === 0) {
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+
+    await connectDB()
+
+    const { id } = params
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid station ID" }, { status: 400 })
+    }
+
+    const station = await ChargingStation.findById(id).populate("createdBy", "username email")
+
+    if (!station) {
       return NextResponse.json({ error: "Charging station not found" }, { status: 404 })
     }
 
-    return NextResponse.json(result[0])
+    return NextResponse.json(station)
   } catch (error) {
     console.error("Error fetching charging station:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
@@ -49,56 +34,85 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-  const user = authenticateToken(request)
-
-  if (!user) {
-    return NextResponse.json({ error: "Access token required" }, { status: 401 })
-  }
-
   try {
+    const user = authenticateRequest(request)
+
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+
+    await connectDB()
+
     const { id } = params
-    const { name, latitude, longitude, address, connector_type, power_output, status, price_per_kwh } =
-      await request.json()
 
-    const result = await sql`
-      UPDATE charging_stations 
-      SET name = ${name}, latitude = ${latitude}, longitude = ${longitude}, address = ${address || null}, 
-          connector_type = ${connector_type || null}, power_output = ${power_output || null}, 
-          status = ${status}, price_per_kwh = ${price_per_kwh || null}, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${id}
-      RETURNING *
-    `
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid station ID" }, { status: 400 })
+    }
 
-    if (result.length === 0) {
+    const { name, latitude, longitude, address, connectorType, powerOutput, status, pricePerKwh } = await request.json()
+
+    const updateData: any = {}
+
+    if (name !== undefined) updateData.name = name
+    if (latitude !== undefined) updateData.latitude = Number(latitude)
+    if (longitude !== undefined) updateData.longitude = Number(longitude)
+    if (address !== undefined) updateData.address = address
+    if (connectorType !== undefined) updateData.connectorType = connectorType
+    if (powerOutput !== undefined) updateData.powerOutput = powerOutput ? Number(powerOutput) : undefined
+    if (status !== undefined) updateData.status = status
+    if (pricePerKwh !== undefined) updateData.pricePerKwh = pricePerKwh ? Number(pricePerKwh) : undefined
+
+    const station = await ChargingStation.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    }).populate("createdBy", "username email")
+
+    if (!station) {
       return NextResponse.json({ error: "Charging station not found" }, { status: 404 })
     }
 
     return NextResponse.json({
       message: "Charging station updated successfully",
-      station: result[0],
+      station,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating charging station:", error)
+
+    // Handle MongoDB validation errors
+    if (error.name === "ValidationError") {
+      const messages = Object.values(error.errors).map((err: any) => err.message)
+      return NextResponse.json({ error: messages.join(", ") }, { status: 400 })
+    }
+
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  const user = authenticateToken(request)
-
-  if (!user) {
-    return NextResponse.json({ error: "Access token required" }, { status: 401 })
-  }
-
   try {
-    const { id } = params
-    const result = await sql`DELETE FROM charging_stations WHERE id = ${id} RETURNING *`
+    const user = authenticateRequest(request)
 
-    if (result.length === 0) {
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
+
+    await connectDB()
+
+    const { id } = params
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid station ID" }, { status: 400 })
+    }
+
+    const station = await ChargingStation.findByIdAndDelete(id)
+
+    if (!station) {
       return NextResponse.json({ error: "Charging station not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ message: "Charging station deleted successfully" })
+    return NextResponse.json({
+      message: "Charging station deleted successfully",
+    })
   } catch (error) {
     console.error("Error deleting charging station:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
