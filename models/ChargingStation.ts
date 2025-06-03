@@ -28,12 +28,20 @@ const ChargingStationSchema = new Schema<IChargingStation>(
       required: [true, "Latitude is required"],
       min: [-90, "Latitude must be between -90 and 90"],
       max: [90, "Latitude must be between -90 and 90"],
+      validate: {
+        validator: (v: number) => !isNaN(v) && isFinite(v),
+        message: "Latitude must be a valid number",
+      },
     },
     longitude: {
       type: Number,
       required: [true, "Longitude is required"],
       min: [-180, "Longitude must be between -180 and 180"],
       max: [180, "Longitude must be between -180 and 180"],
+      validate: {
+        validator: (v: number) => !isNaN(v) && isFinite(v),
+        message: "Longitude must be a valid number",
+      },
     },
     address: {
       type: String,
@@ -72,10 +80,12 @@ const ChargingStationSchema = new Schema<IChargingStation>(
   },
 )
 
-// Index for geospatial queries
+// Compound index for geospatial queries
 ChargingStationSchema.index({ latitude: 1, longitude: 1 })
 ChargingStationSchema.index({ status: 1 })
 ChargingStationSchema.index({ createdBy: 1 })
+ChargingStationSchema.index({ connectorType: 1 })
+ChargingStationSchema.index({ pricePerKwh: 1 })
 
 // Prevent re-compilation during development
 const ChargingStation =

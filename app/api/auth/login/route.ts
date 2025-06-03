@@ -1,9 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import { generateToken } from "@/lib/auth"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     await connectDB()
 
@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    // Find user and include password for comparison
-    const user = await User.findOne({ email: email.toLowerCase() }).select("+password")
+    // Find user by email
+    const user = await User.findOne({ email })
 
     if (!user) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
@@ -28,18 +28,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 })
     }
 
-    // Generate JWT token
+    // Generate token
     const token = generateToken({
       userId: user._id.toString(),
-      username: user.username,
       email: user.email,
+      username: user.username,
     })
 
     return NextResponse.json({
       message: "Login successful",
       token,
       user: {
-        id: user._id,
+        id: user._id.toString(),
         username: user.username,
         email: user.email,
       },

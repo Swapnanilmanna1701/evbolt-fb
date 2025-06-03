@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useRef } from "react"
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet"
-import { divIcon } from "leaflet"
+import { useEffect, useRef, useState } from "react"
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from "react-leaflet"
+import { divIcon, type LatLngBounds } from "leaflet"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Zap, DollarSign, Edit, Trash2, Navigation } from "lucide-react"
+import { MapPin, Zap, DollarSign, Edit, Trash2, Navigation, Plus } from "lucide-react"
 import "leaflet/dist/leaflet.css"
 
 interface ChargingStation {
@@ -32,6 +32,7 @@ interface MapViewProps {
   stations: ChargingStation[]
   onStationSelect: (station: ChargingStation) => void
   onStationDelete: (id: string) => void
+  onAddStation?: (lat: number, lng: number) => void
   searchLocation?: { lat: number; lng: number } | null
   searchRadius?: number
 }
@@ -106,6 +107,74 @@ const createSearchIcon = () => {
   })
 }
 
+// Component to handle map clicks for adding stations
+function MapClickHandler({ onAddStation }: { onAddStation?: (lat: number, lng: number) => void }) {
+  const [clickPosition, setClickPosition] = useState<{ lat: number; lng: number } | null>(null)
+
+  useMapEvents({
+    click: (e) => {
+      if (onAddStation) {
+        setClickPosition({ lat: e.latlng.lat, lng: e.latlng.lng })
+      }
+    },
+  })
+
+  return clickPosition ? (
+    <Marker
+      position={[clickPosition.lat, clickPosition.lng]}
+      icon={divIcon({
+        html: `
+          <div style="
+            background-color: #8b5cf6;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s infinite;
+          ">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
+              <path d="M12 5v14m-7-7h14"/>
+            </svg>
+          </div>
+        `,
+        className: "add-marker",
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      })}
+    >
+      <Popup>
+        <div className="p-2 text-center">
+          <h3 className="font-semibold mb-2">Add Station Here?</h3>
+          <p className="text-sm text-gray-600 mb-3">
+            Lat: {clickPosition.lat.toFixed(6)}
+            <br />
+            Lng: {clickPosition.lng.toFixed(6)}
+          </p>
+          <div className="flex space-x-2">
+            <Button
+              size="sm"
+              onClick={() => {
+                onAddStation?.(clickPosition.lat, clickPosition.lng)
+                setClickPosition(null)
+              }}
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Add Station
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setClickPosition(null)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Popup>
+    </Marker>
+  ) : null
+}
+
 // Component to fit map bounds to show all stations and search area
 function MapBounds({
   stations,
@@ -143,7 +212,15 @@ function MapBounds({
       map.setView(bounds[0], 13)
     } else if (bounds.length > 1) {
       // If multiple points, fit bounds to show all
-      map.fitBounds(bounds, { padding: [20, 20] })
+      try {
+        map.fitBounds(bounds as LatLngBounds, { padding: [20, 20] })
+      } catch (error) {
+        console.warn("Error fitting bounds:", error)
+        // Fallback to center on first point
+        if (bounds.length > 0) {
+          map.setView(bounds[0], 10)
+        }
+      }
     }
   }, [stations, searchLocation, searchRadius, map])
 
@@ -154,6 +231,7 @@ export default function MapView({
   stations,
   onStationSelect,
   onStationDelete,
+  onAddStation,
   searchLocation,
   searchRadius = 10,
 }: MapViewProps) {
@@ -189,6 +267,18 @@ export default function MapView({
             opacity: 0.8;
           }
         }
+        .leaflet-container {
+          height: 100%;
+          width: 100%;
+          z-index: 1;
+        }
+        .leaflet-popup-content-wrapper {
+          border-radius: 8px;
+        }
+        .leaflet-popup-content {
+          margin: 0;
+          padding: 0;
+        }
       `}</style>
 
       <MapContainer
@@ -197,13 +287,21 @@ export default function MapView({
         zoom={10}
         style={{ height: "100%", width: "100%" }}
         className="rounded-lg"
+        zoomControl={true}
+        scrollWheelZoom={true}
+        doubleClickZoom={true}
+        dragging={true}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          maxZoom={19}
         />
 
         <MapBounds stations={stations} searchLocation={searchLocation} searchRadius={searchRadius} />
+
+        {/* Map click handler for adding stations */}
+        {onAddStation && <MapClickHandler onAddStation={onAddStation} />}
 
         {/* Search location marker and radius */}
         {searchLocation && (
@@ -239,44 +337,46 @@ export default function MapView({
             icon={createCustomIcon(station.status, station.distance !== undefined)}
           >
             <Popup maxWidth={300} className="custom-popup">
-              <div className="p-2 min-w-[250px]">
+              <div className="p-3 min-w-[280px]">
                 <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-semibold text-lg">{station.name}</h3>
-                    <p className="text-sm text-gray-600 flex items-center">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg text-gray-900">{station.name}</h3>
+                    <p className="text-sm text-gray-600 flex items-center mt-1">
                       <MapPin className="w-3 h-3 mr-1" />
-                      {station.latitude.toFixed(4)}, {station.longitude.toFixed(4)}
+                      {station.latitude.toFixed(6)}, {station.longitude.toFixed(6)}
                       {station.distance && (
                         <span className="ml-2 text-blue-600 font-medium">{station.distance.toFixed(1)}km away</span>
                       )}
                     </p>
                   </div>
-                  <Badge className={`${getStatusColor(station.status)} text-white text-xs`}>{station.status}</Badge>
+                  <Badge className={`${getStatusColor(station.status)} text-white text-xs ml-2`}>
+                    {station.status}
+                  </Badge>
                 </div>
 
-                {station.address && <p className="text-sm text-gray-600 mb-2">{station.address}</p>}
+                {station.address && <p className="text-sm text-gray-600 mb-3">{station.address}</p>}
 
                 <div className="space-y-2 mb-3">
                   <div className="flex justify-between text-sm">
-                    <span className="flex items-center">
+                    <span className="flex items-center text-gray-700">
                       <Zap className="w-3 h-3 mr-1" />
                       {station.connectorType || "N/A"}
                     </span>
-                    <span>{station.powerOutput ? `${station.powerOutput} kW` : "N/A"}</span>
+                    <span className="text-gray-700">{station.powerOutput ? `${station.powerOutput} kW` : "N/A"}</span>
                   </div>
 
                   {station.pricePerKwh && (
-                    <div className="flex items-center text-sm">
+                    <div className="flex items-center text-sm text-gray-700">
                       <DollarSign className="w-3 h-3 mr-1" />${station.pricePerKwh}/kWh
                     </div>
                   )}
                 </div>
 
                 <div className="text-xs text-gray-500 mb-3">
-                  Created {new Date(station.createdAt).toLocaleDateString()}
+                  Created {new Date(station.createdAt).toLocaleDateString()} by {station.createdBy.username}
                 </div>
 
-                <div className="flex justify-between space-x-2">
+                <div className="flex justify-between space-x-1">
                   <Button
                     variant="outline"
                     size="sm"
@@ -293,7 +393,12 @@ export default function MapView({
                     <Edit className="w-3 h-3 mr-1" />
                     Edit
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => onStationDelete(station._id)} className="text-xs">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onStationDelete(station._id)}
+                    className="text-xs text-red-600 hover:text-red-700"
+                  >
                     <Trash2 className="w-3 h-3 mr-1" />
                     Delete
                   </Button>
@@ -305,7 +410,7 @@ export default function MapView({
       </MapContainer>
 
       {/* Map Legend */}
-      <div className="absolute top-4 right-4 bg-white p-3 rounded-lg shadow-lg z-[1000]">
+      <div className="absolute top-4 right-4 bg-white p-3 rounded-lg shadow-lg z-[1000] border">
         <h4 className="font-semibold text-sm mb-2">Station Status</h4>
         <div className="space-y-1">
           <div className="flex items-center text-xs">
@@ -326,8 +431,23 @@ export default function MapView({
               Search Area
             </div>
           )}
+          {onAddStation && (
+            <div className="flex items-center text-xs pt-1 border-t">
+              <div className="w-3 h-3 bg-purple-500 rounded-full mr-2"></div>
+              Click to Add
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Instructions for adding stations */}
+      {onAddStation && (
+        <div className="absolute bottom-4 left-4 bg-white p-3 rounded-lg shadow-lg z-[1000] border max-w-xs">
+          <p className="text-xs text-gray-600">
+            <strong>Tip:</strong> Click anywhere on the map to add a new charging station at that location.
+          </p>
+        </div>
+      )}
 
       {stations.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-90 z-[1000]">

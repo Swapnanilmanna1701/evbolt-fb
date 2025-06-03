@@ -1,12 +1,11 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
-import { Search, MapPin, Filter, X } from "lucide-react"
+import { Search, MapPin, X } from "lucide-react"
 
 interface FilterState {
   status: string
@@ -37,77 +36,24 @@ export function FilterControls({
     onFiltersChange({ ...filters, [key]: value })
   }
 
-  const hasActiveFilters =
-    filters.status !== "all" ||
-    filters.connectorType !== "all" ||
-    filters.maxPrice ||
-    filters.minPower ||
-    filters.searchCoords
+  const clearLocationSearch = () => {
+    onFiltersChange({
+      ...filters,
+      searchLocation: "",
+      searchCoords: null,
+    })
+  }
 
   return (
     <Card className="mb-6">
-      <CardHeader className="pb-4">
-        <div className="flex justify-between items-center">
-          <CardTitle className="flex items-center">
-            <Filter className="w-5 h-5 mr-2" />
-            Filter Charging Stations
-          </CardTitle>
-          {hasActiveFilters && (
-            <Button variant="outline" size="sm" onClick={onClearFilters}>
-              <X className="w-4 h-4 mr-2" />
-              Clear Filters
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Location Search */}
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <MapPin className="w-4 h-4 text-gray-500" />
-            <Label className="text-sm font-medium">Search by Location</Label>
-          </div>
-          <div className="flex space-x-2">
-            <div className="flex-1">
-              <Input
-                placeholder="Enter city, address, or landmark..."
-                value={filters.searchLocation}
-                onChange={(e) => updateFilter("searchLocation", e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && onLocationSearch()}
-              />
-            </div>
-            <Button onClick={onLocationSearch} disabled={loading || !filters.searchLocation.trim()}>
-              <Search className="w-4 h-4 mr-2" />
-              Search
-            </Button>
-          </div>
-          {filters.searchCoords && (
-            <div className="space-y-2">
-              <Label className="text-sm">Search Radius: {filters.radius}km</Label>
-              <Slider
-                value={[filters.radius]}
-                onValueChange={(value) => updateFilter("radius", value[0])}
-                max={50}
-                min={1}
-                step={1}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-gray-500">
-                <span>1km</span>
-                <span>50km</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Other Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <CardContent className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {/* Status Filter */}
           <div className="space-y-2">
-            <Label className="text-sm">Status</Label>
+            <Label htmlFor="status">Status</Label>
             <Select value={filters.status} onValueChange={(value) => updateFilter("status", value)}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
@@ -120,10 +66,10 @@ export function FilterControls({
 
           {/* Connector Type Filter */}
           <div className="space-y-2">
-            <Label className="text-sm">Connector Type</Label>
+            <Label htmlFor="connectorType">Connector Type</Label>
             <Select value={filters.connectorType} onValueChange={(value) => updateFilter("connectorType", value)}>
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
@@ -138,11 +84,12 @@ export function FilterControls({
 
           {/* Max Price Filter */}
           <div className="space-y-2">
-            <Label className="text-sm">Max Price ($/kWh)</Label>
+            <Label htmlFor="maxPrice">Max Price ($/kWh)</Label>
             <Input
+              id="maxPrice"
               type="number"
               step="0.01"
-              placeholder="e.g., 0.50"
+              placeholder="Any price"
               value={filters.maxPrice}
               onChange={(e) => updateFilter("maxPrice", e.target.value)}
             />
@@ -150,43 +97,92 @@ export function FilterControls({
 
           {/* Min Power Filter */}
           <div className="space-y-2">
-            <Label className="text-sm">Min Power (kW)</Label>
+            <Label htmlFor="minPower">Min Power (kW)</Label>
             <Input
+              id="minPower"
               type="number"
-              placeholder="e.g., 50"
+              placeholder="Any power"
               value={filters.minPower}
               onChange={(e) => updateFilter("minPower", e.target.value)}
             />
           </div>
         </div>
 
-        {/* Active Filters Summary */}
-        {hasActiveFilters && (
-          <div className="pt-4 border-t">
-            <div className="flex flex-wrap gap-2">
-              {filters.status !== "all" && (
-                <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">Status: {filters.status}</div>
+        {/* Location Search */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <div className="space-y-2">
+            <Label htmlFor="searchLocation">Search Location</Label>
+            <div className="relative">
+              <Input
+                id="searchLocation"
+                placeholder="Enter city, address, or landmark"
+                value={filters.searchLocation}
+                onChange={(e) => updateFilter("searchLocation", e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && onLocationSearch()}
+                className="pr-8"
+              />
+              {filters.searchLocation && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                  onClick={clearLocationSearch}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
               )}
-              {filters.connectorType !== "all" && (
-                <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                  Type: {filters.connectorType}
-                </div>
-              )}
-              {filters.maxPrice && (
-                <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                  Max Price: ${filters.maxPrice}/kWh
-                </div>
-              )}
-              {filters.minPower && (
-                <div className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
-                  Min Power: {filters.minPower}kW
-                </div>
-              )}
-              {filters.searchCoords && (
-                <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs">
-                  Within {filters.radius}km of {filters.searchLocation}
-                </div>
-              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="radius">Search Radius (km)</Label>
+            <Select
+              value={filters.radius.toString()}
+              onValueChange={(value) => updateFilter("radius", Number.parseInt(value))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1 km</SelectItem>
+                <SelectItem value="5">5 km</SelectItem>
+                <SelectItem value="10">10 km</SelectItem>
+                <SelectItem value="25">25 km</SelectItem>
+                <SelectItem value="50">50 km</SelectItem>
+                <SelectItem value="100">100 km</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex space-x-2">
+            <Button onClick={onLocationSearch} disabled={loading || !filters.searchLocation.trim()} className="flex-1">
+              <Search className="w-4 h-4 mr-2" />
+              {loading ? "Searching..." : "Search"}
+            </Button>
+            <Button variant="outline" onClick={onClearFilters}>
+              Clear All
+            </Button>
+          </div>
+        </div>
+
+        {/* Active Location Filter Display */}
+        {filters.searchCoords && (
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center text-blue-700">
+                <MapPin className="w-4 h-4 mr-2" />
+                <span className="text-sm font-medium">
+                  Showing stations within {filters.radius}km of "{filters.searchLocation}"
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearLocationSearch}
+                className="text-blue-700 hover:text-blue-900"
+              >
+                <X className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         )}

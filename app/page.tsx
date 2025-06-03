@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -131,65 +131,79 @@ export default function ChargingStationApp() {
     }
   }, [token])
 
-  // Apply filters whenever stations or filters change
+  // Fetch stations with filters applied
+  const fetchStations = useCallback(
+    async (silent = false) => {
+      if (!token) return
+
+      if (!silent) setLoading(true)
+      setRefreshing(true)
+
+      try {
+        // Build query parameters
+        const params = new URLSearchParams()
+
+        if (filters.status !== "all") {
+          params.append("status", filters.status)
+        }
+
+        if (filters.connectorType !== "all") {
+          params.append("connectorType", filters.connectorType)
+        }
+
+        if (filters.maxPrice) {
+          params.append("maxPrice", filters.maxPrice)
+        }
+
+        if (filters.minPower) {
+          params.append("minPower", filters.minPower)
+        }
+
+        if (filters.searchCoords) {
+          params.append("lat", filters.searchCoords.lat.toString())
+          params.append("lng", filters.searchCoords.lng.toString())
+          params.append("radius", filters.radius.toString())
+        }
+
+        const response = await fetch(`/api/charging-stations?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setAllStations(data)
+          setFilteredStations(data)
+          if (!silent) {
+            toast({
+              title: "Stations updated",
+              description: `Found ${data.length} charging stations`,
+            })
+          }
+        } else {
+          throw new Error("Failed to fetch stations")
+        }
+      } catch (error) {
+        if (!silent) {
+          toast({
+            title: "Error",
+            description: "Failed to fetch charging stations",
+            variant: "destructive",
+          })
+        }
+      } finally {
+        setLoading(false)
+        setRefreshing(false)
+      }
+    },
+    [token, filters, toast],
+  )
+
+  // Refetch when filters change
   useEffect(() => {
-    applyFilters()
-  }, [allStations, filters])
-
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371 // Radius of the Earth in kilometers
-    const dLat = (lat2 - lat1) * (Math.PI / 180)
-    const dLon = (lon2 - lon1) * (Math.PI / 180)
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    return R * c
-  }
-
-  const applyFilters = () => {
-    let filtered = [...allStations]
-
-    // Status filter
-    if (filters.status !== "all") {
-      filtered = filtered.filter((station) => station.status === filters.status)
+    if (token) {
+      fetchStations(true)
     }
-
-    // Connector type filter
-    if (filters.connectorType !== "all") {
-      filtered = filtered.filter((station) => station.connectorType === filters.connectorType)
-    }
-
-    // Price filter
-    if (filters.maxPrice) {
-      const maxPrice = Number.parseFloat(filters.maxPrice)
-      filtered = filtered.filter((station) => !station.pricePerKwh || station.pricePerKwh <= maxPrice)
-    }
-
-    // Power filter
-    if (filters.minPower) {
-      const minPower = Number.parseInt(filters.minPower)
-      filtered = filtered.filter((station) => !station.powerOutput || station.powerOutput >= minPower)
-    }
-
-    // Location-based filter
-    if (filters.searchCoords) {
-      filtered = filtered
-        .map((station) => ({
-          ...station,
-          distance: calculateDistance(
-            filters.searchCoords!.lat,
-            filters.searchCoords!.lng,
-            station.latitude,
-            station.longitude,
-          ),
-        }))
-        .filter((station) => station.distance! <= filters.radius)
-        .sort((a, b) => a.distance! - b.distance!)
-    }
-
-    setFilteredStations(filtered)
-  }
+  }, [fetchStations])
 
   const geocodeLocation = async (location: string): Promise<{ lat: number; lng: number } | null> => {
     try {
@@ -302,39 +316,6 @@ export default function ChargingStationApp() {
     })
   }
 
-  const fetchStations = async (silent = false) => {
-    if (!silent) setLoading(true)
-    setRefreshing(true)
-
-    try {
-      const response = await fetch("/api/charging-stations", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setAllStations(data)
-        if (!silent) {
-          toast({
-            title: "Stations updated",
-            description: `Found ${data.length} charging stations`,
-          })
-        }
-      }
-    } catch (error) {
-      if (!silent) {
-        toast({
-          title: "Error",
-          description: "Failed to fetch charging stations",
-          variant: "destructive",
-        })
-      }
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }
-
   const handleStationSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -432,6 +413,21 @@ export default function ChargingStationApp() {
       powerOutput: station.powerOutput?.toString() || "",
       status: station.status,
       pricePerKwh: station.pricePerKwh?.toString() || "",
+    })
+    setShowStationDialog(true)
+  }
+
+  const handleAddStationFromMap = (lat: number, lng: number) => {
+    setEditingStation(null)
+    setStationForm({
+      name: "",
+      latitude: lat.toFixed(6),
+      longitude: lng.toFixed(6),
+      address: "",
+      connectorType: "",
+      powerOutput: "",
+      status: "available",
+      pricePerKwh: "",
     })
     setShowStationDialog(true)
   }
@@ -602,7 +598,7 @@ export default function ChargingStationApp() {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm text-gray-600">
-                Showing {filteredStations.length} of {allStations.length} stations
+                Showing {filteredStations.length} charging stations
                 {filters.searchCoords && (
                   <span className="ml-2 text-blue-600">
                     within {filters.radius}km of {filters.searchLocation}
@@ -769,6 +765,7 @@ export default function ChargingStationApp() {
                       stations={filteredStations}
                       onStationSelect={handleEditStation}
                       onStationDelete={handleDeleteStation}
+                      onAddStation={handleAddStationFromMap}
                       searchLocation={filters.searchCoords}
                       searchRadius={filters.radius}
                     />
@@ -814,7 +811,7 @@ export default function ChargingStationApp() {
                         </div>
                       )}
                       <div className="text-xs text-gray-500">
-                        Created {new Date(station.createdAt).toLocaleDateString()}
+                        Created {new Date(station.createdAt).toLocaleDateString()} by {station.createdBy.username}
                       </div>
                       <div className="flex justify-end space-x-2 pt-2">
                         <Button variant="outline" size="sm" onClick={() => handleEditStation(station)}>
@@ -829,26 +826,28 @@ export default function ChargingStationApp() {
                 ))}
               </div>
 
-              {filteredStations.length === 0 && allStations.length > 0 && (
+              {filteredStations.length === 0 && (
                 <div className="text-center py-12">
-                  <Filter className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No stations match your filters</h3>
-                  <p className="text-gray-600 mb-4">Try adjusting your search criteria</p>
-                  <Button onClick={clearFilters} variant="outline">
-                    Clear Filters
-                  </Button>
-                </div>
-              )}
-
-              {allStations.length === 0 && (
-                <div className="text-center py-12">
-                  <Zap className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No charging stations yet</h3>
-                  <p className="text-gray-600 mb-4">Get started by adding your first charging station</p>
-                  <Button onClick={() => setShowStationDialog(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Station
-                  </Button>
+                  {allStations.length > 0 ? (
+                    <>
+                      <Filter className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No stations match your filters</h3>
+                      <p className="text-gray-600 mb-4">Try adjusting your search criteria</p>
+                      <Button onClick={clearFilters} variant="outline">
+                        Clear Filters
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">No charging stations yet</h3>
+                      <p className="text-gray-600 mb-4">Get started by adding your first charging station</p>
+                      <Button onClick={() => setShowStationDialog(true)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Your First Station
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
             </TabsContent>

@@ -1,9 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import connectDB from "@/lib/mongodb"
 import User from "@/models/User"
 import { generateToken } from "@/lib/auth"
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     await connectDB()
 
@@ -11,36 +11,39 @@ export async function POST(request: NextRequest) {
 
     // Validation
     if (!username || !email || !password) {
-      return NextResponse.json({ error: "Username, email, and password are required" }, { status: 400 })
+      return NextResponse.json({ error: "All fields are required" }, { status: 400 })
     }
 
     if (password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
+      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 })
     }
 
     // Check if user already exists
     const existingUser = await User.findOne({
-      $or: [{ email: email.toLowerCase() }, { username }],
+      $or: [{ email }, { username }],
     })
 
     if (existingUser) {
-      return NextResponse.json({ error: "User with this email or username already exists" }, { status: 400 })
+      return NextResponse.json(
+        { error: existingUser.email === email ? "Email already registered" : "Username already taken" },
+        { status: 400 },
+      )
     }
 
     // Create new user
     const user = new User({
       username,
-      email: email.toLowerCase(),
+      email,
       password,
     })
 
     await user.save()
 
-    // Generate JWT token
+    // Generate token
     const token = generateToken({
       userId: user._id.toString(),
-      username: user.username,
       email: user.email,
+      username: user.username,
     })
 
     return NextResponse.json(
@@ -48,7 +51,7 @@ export async function POST(request: NextRequest) {
         message: "User registered successfully",
         token,
         user: {
-          id: user._id,
+          id: user._id.toString(),
           username: user.username,
           email: user.email,
         },

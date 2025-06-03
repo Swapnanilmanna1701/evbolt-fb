@@ -53,10 +53,22 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const updateData: any = {}
 
-    if (name !== undefined) updateData.name = name
-    if (latitude !== undefined) updateData.latitude = Number(latitude)
-    if (longitude !== undefined) updateData.longitude = Number(longitude)
-    if (address !== undefined) updateData.address = address
+    if (name !== undefined) updateData.name = name.trim()
+    if (latitude !== undefined) {
+      const lat = Number(latitude)
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        return NextResponse.json({ error: "Invalid latitude value" }, { status: 400 })
+      }
+      updateData.latitude = lat
+    }
+    if (longitude !== undefined) {
+      const lng = Number(longitude)
+      if (isNaN(lng) || lng < -180 || lng > 180) {
+        return NextResponse.json({ error: "Invalid longitude value" }, { status: 400 })
+      }
+      updateData.longitude = lng
+    }
+    if (address !== undefined) updateData.address = address?.trim()
     if (connectorType !== undefined) updateData.connectorType = connectorType
     if (powerOutput !== undefined) updateData.powerOutput = powerOutput ? Number(powerOutput) : undefined
     if (status !== undefined) updateData.status = status
