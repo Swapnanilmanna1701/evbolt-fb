@@ -29,7 +29,7 @@ NODE_ENV=production
 #### Option B: Vercel CLI
 \`\`\`bash
 # Install Vercel CLI
-npm i -g vercel
+npm install -g vercel
 
 # Deploy
 vercel
@@ -95,3 +95,38 @@ After deployment, your app will be available at your Vercel URL. The database ta
 - Vercel automatically scales your functions
 - Monitor database connection limits
 - Consider upgrading Neon plan for higher traffic
+
+### Local Development Setup
+
+1. **Clone and install:**
+   \`\`\`bash
+   git clone <your-repo>
+   cd charging-station-manager
+   npm install
+   \`\`\`
+
+2. **Environment setup:**
+   \`\`\`bash
+   cp .env.example .env
+   # Edit .env with your database credentials
+   \`\`\`
+
+3. **Start development:**
+   \`\`\`bash
+   npm run dev
+   \`\`\`
+
+### Build Commands
+
+\`\`\`bash
+# Development
+npm run dev
+
+# Production build
+npm run build
+
+# Start production server
+npm start
+
+# Lint code
+npm run lint

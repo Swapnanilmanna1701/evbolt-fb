@@ -62,7 +62,7 @@ A full-stack application for managing electric vehicle charging stations built w
 ### Prerequisites
 - Node.js (v18 or higher)
 - PostgreSQL database
-- npm or yarn
+- npm (comes with Node.js)
 
 ### Backend Setup
 
@@ -92,7 +92,7 @@ The backend will run on `http://localhost:3001`
 The frontend is integrated into the same project. To run the development server:
 
 \`\`\`bash
-npm run dev:frontend
+npm run dev
 \`\`\`
 
 The frontend will run on `http://localhost:3000`
@@ -145,6 +145,20 @@ PORT=3001
 - **CORS Configuration** for secure cross-origin requests
 
 ## Testing the API
+
+\`\`\`bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+\`\`\`
 
 You can test the API endpoints using tools like Postman or curl:
 
