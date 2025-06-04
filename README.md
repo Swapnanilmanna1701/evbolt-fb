@@ -108,15 +108,7 @@ curl -X POST http://localhost:3000/api/init-db
 
 ## 🚀 Deployment to Vercel
 
-### Environment Variables for Vercel
-Add these in your Vercel dashboard:
-\`\`\`env
-NODE_ENV=production
-MONGO_URI=mongodb+srv://swapnanilmanna06694:MPSCsjWsXJJNJdCw@cluster0.3frma3k.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
-JWT_SECRET=32fc837f173987f07c6202132dfc04fe64095964e5a53c99d00ce0384c85b8e8f566c5387073bcac7f49b961b6a677a2a3c429dd89af788854fb6f48e200565f
-JWT_EXPIRE=30d
-PORT=5000
-\`\`\`
+
 
 ### Deploy Steps
 1. **Push to GitHub**
